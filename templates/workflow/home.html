@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Application Tracker</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; }
+
+        header {
+            background: rgba(10,10,10,0.97);
+            border-bottom: 1px solid #1e1e1e;
+            padding: 1rem 2rem;
+            display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 100;
+        }
+        header h1 { color: #7c3aed; font-size: 1.2rem; }
+        header a { color: #aaa; text-decoration: none; font-size: 0.88rem; }
+        header a:hover { color: #7c3aed; }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+
+        /* STATS */
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .stat-card {
+            background: #111; border: 1px solid #1e1e1e; border-radius: 10px;
+            padding: 1rem; text-align: center; cursor: pointer;
+            transition: border-color 0.2s, transform 0.2s; text-decoration: none; color: inherit;
+        }
+        .stat-card:hover, .stat-card.active { border-color: #7c3aed; transform: translateY(-2px); }
+        .stat-card .count { font-size: 2rem; font-weight: 700; color: #7c3aed; }
+        .stat-card .label { font-size: 0.78rem; color: #888; margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+        /* TOOLBAR */
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .toolbar h2 { font-size: 1.1rem; color: #ccc; }
+        .add-btn {
+            background: #7c3aed; color: white; border: none; border-radius: 8px;
+            padding: 0.6rem 1.2rem; font-size: 0.88rem; font-weight: 600;
+            cursor: pointer; text-decoration: none; transition: background 0.2s;
+        }
+        .add-btn:hover { background: #6d28d9; }
+
+        /* TABLE */
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+        thead tr { border-bottom: 1px solid #222; }
+        th { padding: 0.7rem 1rem; text-align: left; color: #666; font-weight: 500; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+        td { padding: 0.85rem 1rem; border-bottom: 1px solid #141414; }
+        tr:hover td { background: #111; }
+        td a { color: #e0e0e0; text-decoration: none; }
+        td a:hover { color: #7c3aed; }
+
+        .stage-badge {
+            display: inline-block; padding: 0.2rem 0.7rem; border-radius: 20px;
+            font-size: 0.75rem; font-weight: 600; text-transform: capitalize;
+        }
+        .stage-applied    { background: #1e3a5f; color: #60a5fa; }
+        .stage-screening  { background: #2d1f5e; color: #a78bfa; }
+        .stage-interview  { background: #1e4d3a; color: #34d399; }
+        .stage-offer      { background: #3d2e00; color: #fbbf24; }
+        .stage-accepted   { background: #1a3d1a; color: #4ade80; }
+        .stage-rejected   { background: #3d1a1a; color: #f87171; }
+
+        .progress-bar { display: flex; gap: 3px; align-items: center; }
+        .progress-dot { width: 10px; height: 10px; border-radius: 50%; background: #222; }
+        .progress-dot.done { background: #7c3aed; }
+        .progress-dot.current { background: #a78bfa; box-shadow: 0 0 6px #7c3aed; }
+
+        .action-link { color: #555; font-size: 0.8rem; text-decoration: none; margin-left: 0.5rem; }
+        .action-link:hover { color: #ef4444; }
+
+        .empty { text-align: center; padding: 4rem; color: #444; }
+        .empty p { margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>📋 CV / Job Tracker</h1>
+    <a href="/">← Portfolio</a>
+</header>
+
+<div class="container">
+
+    <!-- STATS -->
+    <div class="stats">
+        <a href="?" class="stat-card {% if not active_filter %}active{% endif %}">
+            <div class="count">{{ applications.count }}</div>
+            <div class="label">Total</div>
+        </a>
+        {% for key, label in stages %}
+        <a href="?stage={{ key }}" class="stat-card {% if active_filter == key %}active{% endif %}">
+            <div class="count">{% for k, v in stats.items %}{% if k == key %}{{ v }}{% endif %}{% endfor %}</div>
+            <div class="label">{{ label }}</div>
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+        <h2>
+            {% if active_filter %}Filtered: {{ active_filter|capfirst }}{% else %}All Applications{% endif %}
+            ({{ applications.count }})
+        </h2>
+        <a href="{% url 'add_application' %}" class="add-btn">+ Add Application</a>
+    </div>
+
+    <!-- TABLE -->
+    {% if applications %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Company</th>
+                    <th>Role</th>
+                    <th>Location</th>
+                    <th>Stage</th>
+                    <th>Progress</th>
+                    <th>Applied</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in applications %}
+                <tr>
+                    <td><a href="{% url 'detail' app.pk %}"><strong>{{ app.company }}</strong></a></td>
+                    <td>{{ app.role }}</td>
+                    <td>{{ app.location|default:"—" }}</td>
+                    <td><span class="stage-badge stage-{{ app.stage }}">{{ app.get_stage_display }}</span></td>
+                    <td>
+                        <div class="progress-bar">
+                            {% for s in "01234" %}
+                            <div class="progress-dot
+                                {% if app.stage_index > forloop.counter0 %}done
+                                {% elif app.stage_index == forloop.counter0 %}current
+                                {% endif %}
+                                {% if app.stage == 'rejected' %}{% endif %}
+                            "></div>
+                            {% endfor %}
+                        </div>
+                    </td>
+                    <td>{{ app.applied_on }}</td>
+                    <td>
+                        <a href="{% url 'detail' app.pk %}" class="action-link" style="color:#7c3aed">View</a>
+                        <form method="post" action="{% url 'delete_application' app.pk %}" style="display:inline" onsubmit="return confirm('Delete this application?')">
+                            {% csrf_token %}
+                            <button type="submit" style="background:none;border:none;cursor:pointer;" class="action-link">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty">
+        <p>No applications yet.</p>
+        <a href="{% url 'add_application' %}" class="add-btn">+ Add your first application</a>
+    </div>
+    {% endif %}
+
+</div>
+</body>
+</html>
